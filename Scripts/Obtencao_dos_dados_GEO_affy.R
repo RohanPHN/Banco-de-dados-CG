@@ -12,43 +12,65 @@ library('dplyr')
 options(timeout = Inf)
 
 # Baixando os dados
-getGEOSuppFiles("GSE62254", baseDir = "Projeto recorrencia/Dados brutos")
-getGEOSuppFiles("GSE29272", baseDir = "Projeto recorrencia/Dados brutos")
-getGEOSuppFiles("GSE15459", baseDir = "Projeto recorrencia/Dados brutos")
-getGEOSuppFiles("GSE38749", baseDir = "Projeto recorrencia/Dados brutos")
-getGEOSuppFiles("GSE57303", baseDir = "Projeto recorrencia/Dados brutos")
+getGEOSuppFiles("GSE62254", baseDir = "Dados brutos")
+getGEOSuppFiles("GSE29272", baseDir = "Dados brutos")
+getGEOSuppFiles("GSE15459", baseDir = "Dados brutos")
+getGEOSuppFiles("GSE38749", baseDir = "Dados brutos")
+getGEOSuppFiles("GSE57303", baseDir = "Dados brutos")
 
 
 # Descompactando os dados
-untar("Projeto recorrencia/Dados brutos/GSE62254_RAW.tar",  exdir = "Projeto recorrencia/Dados brutos/GSE62254")
-untar("Projeto recorrencia/Dados brutos/GSE29272_RAW.tar",  exdir = "Projeto recorrencia/Dados brutos/GSE29272")
-untar("Projeto recorrencia/Dados brutos/GSE15459_RAW.tar",  exdir = "Projeto recorrencia/Dados brutos/GSE15459")
-untar("Projeto recorrencia/Dados brutos/GSE38749_RAW.tar",  exdir = "Projeto recorrencia/Dados brutos/GSE38749")
-untar("Projeto recorrencia/Dados brutos/GSE57303_RAW.tar",  exdir = "Projeto recorrencia/Dados brutos/GSE57303")
+untar("Dados brutos/GSE62254_RAW.tar",  exdir = "Dados brutos/GSE62254")
+untar("Dados brutos/GSE29272_RAW.tar",  exdir = "Dados brutos/GSE29272")
+untar("Dados brutos/GSE15459_RAW.tar",  exdir = "Dados brutos/GSE15459")
+untar("Dados brutos/GSE38749_RAW.tar",  exdir = "Dados brutos/GSE38749")
+untar("Dados brutos/GSE57303_RAW.tar",  exdir = "Dados brutos/GSE57303")
 
-#################################################### Processamento dos dados ####################################################
+############################ Obtenção dos dados ###############################
 
-#__________________________ GSE62254 __________________________# 
+obtendo_dados_geo <- function(codigos) {
+  for (cod in codigos){
+    # Lendo os arquivos
+    raw.data <- ReadAffy(celfile.path = paste0('Dados brutos/', cod))
+    
+    # Executando a normalizaççao rma
+    normalized.data <- affy::rma(raw.data)
+    
+    # Obtendo as estimativas de expressão
+    normalized.expr <- as.data.frame(exprs(normalized.data))
+    
+    # Ajustando o nome das colunas
+    colnames(normalized.expr) <- gsub("_.*","", colnames(normalized.expr))
+    
+    # Mapeando as sondas para simbolos de genes
+    gse <- getGEO(cod, GSEMatrix = TRUE)
+    feature.data <- gse[[1]]@featureData@data
+    feature.data <- feature.data[,c(1,11)]
+    normalized.expr <- normalized.expr %>%
+      tibble::rownames_to_column(var = 'ID') %>%
+      inner_join(., feature.data, by = 'ID')
+    
+    # Lidando com genes repetidos
+    normalized.expr <- as.data.frame(avereps(x=normalized.expr, ID=normalized.expr$`Gene Symbol`))
+    rownames(normalized.expr) <- normalized.expr$`Gene Symbol`
+    
+    # Retirando as colunas que não são mais necessárias
+    normalized.expr <- normalized.expr |> relocate(`Gene Symbol`) 
+    normalized.expr <- normalized.expr[,-c(1, 2)]
+    
+    # Obtendo os dados clinicos
+    clinico <- gse[[1]]@phenoData@data
+    clinico$estudo <- cod
+    
+    # Salvando os dados
+    write.csv(normalized.expr, paste0("Dados normalizados/Dados separados/expr_affy_", cod, ".csv"))
+    write.csv(clinico, paste0("Dados clinicos/Dados separados/clin_affy_", cod, ".csv"))
+  }
+}
 
-# Lendo os arquivos
-raw.data.GSE62254 <- ReadAffy(celfile.path = 'Projeto recorrencia/Dados brutos/GSE62254')
-
-# Executando a normalizaççao rma
-normalized.data.GSE62254 <- affy::rma(raw.data.GSE62254)
-
-# Obtendo as estimativas de expressão
-normalized.expr.GSE62254 <- as.data.frame(exprs(normalized.data.GSE62254))
-
-# Mapeando as sondas para simbolos de genes
-gse.GSE62254 <- getGEO("GSE62254", GSEMatrix = TRUE)
-feature.data.GSE62254 <- gse.GSE62254[[1]]@featureData@data
-feature.data.GSE62254 <- feature.data.GSE62254[,c(1,11)]
-normalized.expr.GSE62254 <- normalized.expr.GSE62254 %>%
-  tibble::rownames_to_column(var = 'ID') %>%
-  inner_join(., feature.data.GSE62254, by = 'ID')
-
-normalized.expr.GSE62254 <- as.data.frame(avereps(x=normalized.expr.GSE62254, ID=normalized.expr.GSE62254$`Gene Symbol`))
-colnames(normalized.expr.GSE62254) <- gsub("_.*","", colnames(normalized.expr.GSE62254))
-rownames(normalized.expr.GSE62254) <- normalized.expr.GSE62254$`Gene Symbol`
-normalized.expr.GSE62254 <- normalized.expr.GSE62254[,-c(1, 302)]
+obtendo_dados_geo(c("GSE62254",
+                    "GSE29272",
+                    "GSE15459",
+                    "GSE38749",
+                    "GSE57303"))
 

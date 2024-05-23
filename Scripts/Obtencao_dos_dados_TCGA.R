@@ -5,9 +5,6 @@ library("limma")
 library("edgeR")
 library("biomaRt")
 
-# Indicando a pasta de trabalho
-setwd("C:/Users/2526991/Documents/Paulo Rohan")
-
 # Lendo os dados de RNA-Seq do TCGA-STAD
 dat = readRDS(file = "Dados Brutos/DOUTORADO_mRNA_TCGA.RDS")
 
@@ -34,7 +31,6 @@ rna_raw <- as.data.frame(rna_raw)
 identical(colnames(rna_raw), rownames(clinical))
 
 # Mantendo apenas os tumores
-clinical <- subset(clinical, subset = clinical$definition == "Primary solid Tumor")
 rna_raw <- rna_raw[,colnames(rna_raw) %in% rownames(clinical)]
 identical(colnames(rna_raw), rownames(clinical))
 
@@ -65,6 +61,9 @@ ens2symbol<-function(ids){
 }
 
 genes <- ens2symbol(row.names(dds))
+genes <- genes[which(genes$gene_biotype == "protein_coding"),]
+genes[genes == ''] <- NA
+genes <- genes[!(is.na(genes$hgnc_symbol)),]
 
 # Obtendo as contagens normalizadas
 dds <- estimateSizeFactors(dds)
@@ -97,6 +96,6 @@ rna_vst <- rna_vst[,-1]
 rna_vst[] <- sapply(rna_vst, as.numeric)
 
 # Salvando os dados
-write.csv(rna_norm, "Projeto recorrencia/Dados normalizados/GC_TCGA_norm.csv", row.names = T)
-write.csv(rna_vst, "Projeto recorrencia/Dados normalizados/GC_TCGA_vst.csv", row.names = T)
-write.csv(clinical, "Projeto recorrencia/Dados clinicos/GC_TCGA_clinical.csv", row.names = T)
+write.csv(rna_norm, "Dados normalizados/Dados conjuntos/TCGA/GC_TCGA_norm.csv", row.names = T)
+write.csv(rna_vst, "Dados normalizados/Dados conjuntos/TCGA/GC_TCGA_vst.csv", row.names = T)
+write.csv(clinical, "Dados clinicos/Dados conjuntos/TCGA/GC_TCGA_clinical.csv", row.names = T)
